@@ -1,0 +1,12 @@
+APScheduler
+aiohttp
+aiosqlite
+asyncpraw
+coc.py
+gspread
+gspread-formatting
+loguru
+pandas
+python-dotenv
+pytz
+requests
