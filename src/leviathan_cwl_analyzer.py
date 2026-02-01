@@ -541,5 +541,4 @@ async def run():
     df.to_csv(CWL_DATA_FILE_PATH, index=False)
     
     # Push the performance data to Google sheets.
-    # await cwl_analysis_to_google_sheets(cwl_analysis, headers)
-    logger.debug('I would have pushed the CWL data to google sheets here!')
+    await cwl_analysis_to_google_sheets(cwl_analysis, headers)
