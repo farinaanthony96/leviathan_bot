@@ -27,8 +27,23 @@ DEBUG_MODE = False
 
 # =============================== Event Listeners ==============================
 @COC_EVENTS_CLIENT.event
+@coc.WarEvents.preparation_start_time()
+async def new_war_new_func(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
+    logger.debug(f'Old Clan prep: {old_war.preparation_start_time.time}  |  New war prep: {new_war.preparation_start_time.time}')
+    await asyncio.sleep(0.1)
+
+
+@COC_EVENTS_CLIENT.event
+@coc.WarEvents.war_tag()
+async def cwl_round_change(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
+    logger.debug(f'Old war tag: {old_war.war_tag}  |  New war tag: {new_war.war_tag}')
+    await asyncio.sleep(0.1)
+
+
+@COC_EVENTS_CLIENT.event
 @coc.WarEvents.new_war()
 async def new_war_found(new_war: coc.ClanWar) -> None:
+    logger.debug('old new_war triggered')
     await leviathan_war.new_war_found(new_war)
 
 
@@ -147,6 +162,7 @@ async def maintenance_ended(maintenance_start_time: datetime) -> None:
 async def coc_py_error_occurred(coc_py_exception: Exception) -> None:
     logger.error('The coc.py library encountered an error:')
     logger.error(coc_py_exception)
+    await asyncio.sleep(0.1)
 
 
 # ================================== Functions =================================
