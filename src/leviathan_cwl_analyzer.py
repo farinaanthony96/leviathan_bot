@@ -86,7 +86,7 @@ class WarParticipation:
 
 
 class PlayerPerformance:
-    player: coc.ClanMember
+    player: coc.ClanWarLeagueClanMember
     war_performances: list[WarParticipation]
     total_stars: int
     total_destruction_percentage: int
@@ -95,7 +95,7 @@ class PlayerPerformance:
     total_rounds_placed_into: int
     has_participated: bool
     
-    def __init__(self, player: coc.ClanMember):
+    def __init__(self, player: coc.ClanWarLeagueClanMember):
         self.player = player
         self.war_performances = list[WarParticipation]()
         self.total_stars = 0
@@ -132,7 +132,7 @@ class CWLAnalysis:
     performances: dict[str, PlayerPerformance]
     cwl_group: coc.ClanWarLeagueGroup
     
-    def __init__(self, cwl_roster: list[coc.ClanMember], cwl_group: coc.ClanWarLeagueGroup):
+    def __init__(self, cwl_roster: list[coc.ClanWarLeagueClanMember], cwl_group: coc.ClanWarLeagueGroup):
         self.performances = dict[str, PlayerPerformance]()
         self.cwl_group = cwl_group
         
@@ -147,7 +147,8 @@ class CWLAnalysis:
         self.performances[player_tag].add_war_participation(war_state, None)
     
     def sorted_performances(self) -> list[PlayerPerformance]:
-        return sorted(self.performances.values(), key=lambda player_performance: (player_performance.total_participated_attacks, player_performance.total_stars, player_performance.total_destruction_percentage, player_performance.player.name), reverse=True)
+        sorted_by_name = sorted(self.performances.values(), key=lambda player_performance: (player_performance.player.name))
+        return sorted(sorted_by_name, key=lambda player_performance: (player_performance.total_participated_attacks, player_performance.total_stars, player_performance.total_destruction_percentage), reverse=True)
         
     async def create_data_headers(self) -> list[str]:
         headers = ["Participating Roster", "Townhall Level"]
@@ -313,11 +314,30 @@ def rate_attack(attacker: coc.ClanWarMember, defender: coc.ClanWarMember) -> Att
     return rating
 
 
+def get_true_map_position(war: coc.ClanWar, player_tag: str, is_opponent: bool) -> int:
+    true_map_position = 1
+    if is_opponent:
+        for war_participant in war.opponent.members:
+            if war_participant.tag == player_tag:
+                return true_map_position
+            true_map_position += 1
+    else:
+        for war_participant in war.clan.members:
+            if war_participant.tag == player_tag:
+                return true_map_position
+            true_map_position += 1
+    return -1
+
+
 async def analyze_cwl_performance() -> CWLAnalysis:
-    # Get the CWL group and all the clan members in the clan.
+    # Get the CWL group and all the clan members in the CWL roster.
     cwl_group = await COC_EVENTS_CLIENT.get_league_group(CLAN_TAG)
-    clan_members = await COC_EVENTS_CLIENT.get_members(CLAN_TAG)
-    cwl_analysis = CWLAnalysis(clan_members, cwl_group)
+    cwl_roster = list()
+    for clan in cwl_group.clans:
+        if clan.tag == CLAN_TAG:
+            cwl_roster = clan.members
+            break
+    cwl_analysis = CWLAnalysis(cwl_roster, cwl_group)
     
     # Iterate through each available war so far during CWL for the clan.
     round_number = 0
@@ -325,14 +345,14 @@ async def analyze_cwl_performance() -> CWLAnalysis:
         round_number += 1
         
         # Iterate through each clan member in the clan.
-        for clan_member in clan_members:
+        for roster_member in cwl_roster:
             # Check if this clan member is in the war.
-            war_member = war.get_member(clan_member.tag)
+            war_member = war.get_member(roster_member.tag)
             if not war_member:
                 # Member is not in this war.
                 if DEBUG_MODE:
-                    logger.debug(f"[{war.clan.name}] [Round {round_number}]: {clan_member.name} {ParticipationState.NOT_IN_WAR.value}")
-                cwl_analysis.add_player_war_state(clan_member.tag, ParticipationState.NOT_IN_WAR)
+                    logger.debug(f"[{war.clan.name}] [Round {round_number}]: {roster_member.name} {ParticipationState.NOT_IN_WAR.value}")
+                cwl_analysis.add_player_war_state(roster_member.tag, ParticipationState.NOT_IN_WAR)
                 continue
             
             # Check if this war member did not attack in this war.
@@ -363,7 +383,7 @@ async def analyze_cwl_performance() -> CWLAnalysis:
             opponent = war.opponent.get_member(war_member_attack.defender_tag)
             attack_rating = rate_attack(war_member, opponent)
             war_member_attack = AnalyzedCWLAttack(war_member_attack.stars, int(war_member_attack.destruction), int(war_member_attack.duration),
-                            war_member.map_position, opponent.town_hall, opponent.map_position, attack_rating)
+                            get_true_map_position(war, war_member.tag, False), opponent.town_hall, get_true_map_position(war, opponent.tag, True), attack_rating)
             
             # Add the war member's performance to the analysis.
             cwl_analysis.add_player_war_performance(war_member.tag, war_member_attack)
@@ -381,8 +401,8 @@ async def analyze_cwl_performance() -> CWLAnalysis:
     remaining_wars = cwl_group.number_of_rounds - len(cwl_group.rounds)
     for _ in range(0, remaining_wars):
         # Add the "not in war" state to all members of the clan.
-        for clan_member in clan_members:
-            cwl_analysis.add_player_war_state(clan_member.tag, ParticipationState.NOT_IN_WAR)
+        for roster_member in cwl_roster:
+            cwl_analysis.add_player_war_state(roster_member.tag, ParticipationState.NOT_IN_WAR)
     
     return cwl_analysis
 
@@ -461,22 +481,27 @@ async def cwl_analysis_to_google_sheets(cwl_analysis: CWLAnalysis, analysis_head
         row_num += 1
     
     # Create filler rows beneath the data to clear any residual data.
+    cwl_performance_table = cwl_analysis.create_performance_table()
+    cwl_performance_count = len(cwl_performance_table)
     filler_data = list[list[str]]()
-    for _ in range(0, 50 - len(sorted_analysis)):
+    for _ in range(0, 50 - cwl_performance_count):
         filler_data_row = ["", ""]
         for _ in range(0, cwl_analysis.cwl_group.number_of_rounds + 3):
             filler_data_row.append("")
         filler_data.append(filler_data_row)
     
-    filler_row = 3 + len(sorted_analysis)
-    filler_formatting = list[list[dict]]()
-    for _ in range(0, 50 - len(sorted_analysis)):
+    filler_row = 3 + cwl_performance_count
+    filler_formatting = list[dict]()
+    for _ in range(0, 50 - cwl_performance_count):
         filler_col = 1
-        filler_formatting_row = [{"range": gspread.utils.rowcol_to_a1(row_num, col_num), "format": light_orange_3_bg_format}]
+        filler_formatting.append({"range": gspread.utils.rowcol_to_a1(filler_row, filler_col), "format": light_orange_3_bg_format})
+        filler_col += 1
+        
         for _ in range(0, 1 + cwl_analysis.cwl_group.number_of_rounds + 3):
-            filler_formatting_row.append({"range": gspread.utils.rowcol_to_a1(filler_row, filler_col), "format": white_bg_format})
+            filler_formatting.append({"range": gspread.utils.rowcol_to_a1(filler_row, filler_col), "format": white_bg_format})
+            
             filler_col += 1
-        filler_formatting.append(filler_formatting_row)
+            
         filler_row += 1
     
     # War performance formatting.
@@ -499,14 +524,14 @@ async def cwl_analysis_to_google_sheets(cwl_analysis: CWLAnalysis, analysis_head
             war_performance_formatting.append({"range": gspread.utils.rowcol_to_a1(2, round_index + 3), "format": white_bg_format})
     
     # Send the filler data and filler formatting to Google sheets.
-    cwl_worksheet.update(values=filler_data, range_name=gspread.utils.rowcol_to_a1(3 + len(sorted_analysis), 1))
+    cwl_worksheet.update(values=filler_data, range_name=gspread.utils.rowcol_to_a1(3 + cwl_performance_count, 1))
     cwl_worksheet.batch_format(filler_formatting)
     
     # Send the war headers to Google sheets.
     cwl_worksheet.update(values=[analysis_header], range_name="A2")
     
     # Make a 2D list of strings of the attack data and send it to Google sheets.
-    cwl_worksheet.update(values=sorted_analysis, range_name="A3")
+    cwl_worksheet.update(values=cwl_performance_table, range_name="A3")
     
     # Send formatting data for the whole sheet to Google sheets.
     format_batch.execute()
