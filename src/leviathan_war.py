@@ -179,7 +179,7 @@ async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
         schedule_war_leader_tagging(new_war.end_time.time)
     # We're not doing anything for any other state of war.
     else:
-        logger.info(f'War state went from "{old_war.state.value}" to "{new_war.state.value}"')
+        logger.debug(f'War state went from "{old_war.state.value}" to "{new_war.state.value}"')
         
         # TODO: Check if we go from "war_ended" to "not_in_war" to check if the clan is now looking
         # for another war. If that's correct / logical behavior then we can remove leader tagging
@@ -193,33 +193,64 @@ async def war_attack_occurred(attack: coc.WarAttack, war: coc.ClanWar) -> None:
     if war.is_cwl:
         logger.info(f'CWL war attack detected! Updating CWL performance sheet')
         
-        # Run the CWL performance analyzer
+        # Run the CWL performance analyzer.
         await leviathan_cwl_analyzer.run()
 
 
-async def startup_war() -> None:
-    # Get the latest war.
-    latest_war = await COC_EVENTS_CLIENT.get_current_war(CLAN_TAG)
+async def startup_cwl_war() -> None:
+    # Get the CWL group.
+    cwl_group = await COC_EVENTS_CLIENT.get_league_group(CLAN_TAG)
     
-    # Check if there are no wars.
-    if not latest_war:
-        # Schedule leader tagging to start the next war.
-        logger.error('Either it has been a while since the last war or the clan has never done war before')
+    # Check if it's not CWL.
+    if not cwl_group:
+        logger.info('The clan is not in CWL')
+        return
+    
+    logger.info('CWL detected - Running the CWL analysis')
+    await leviathan_cwl_analyzer.run()
+    
+    # Check if it is prep day.
+    if cwl_group.state == 'preparation':
+        logger.info('Preparation day has been detected for CWL - Not scheduling war reminders')
+        return
+    elif cwl_group.state == 'ended':
+        logger.info('CWL has ended - Setting up leader tagging to search for a normal clan war')
         schedule_war_leader_tagging(datetime.now(pytz.UTC))
         return
     
-    # Check if this war is a CWL war.
-    if latest_war.is_cwl:
-        logger.info('A CWL war has been detected')
-        
-        # Run the CWL performance analyzer.
-        await leviathan_cwl_analyzer.run()
-    # This must be a normal clan war.
-    else:
-        logger.info('A normal clan war has been detected')
+    # Get the current war in CWL.
+    current_cwl_war = None
+    async for war in cwl_group.get_wars_for_clan(CLAN_TAG):
+        # Check if this is the current war.
+        if war.state is coc.WarState.in_war:
+            current_cwl_war = war
+            break
     
-    # Log the current status of war.
-    logger.info(f'Current war state: {latest_war.state.in_game_name}')
+    # Setup war tagging
+    schedule_war_reminders(current_cwl_war.end_time.time)
+    
+
+async def startup_war() -> None:
+    # Get the latest war.
+    latest_war = await COC_EVENTS_CLIENT.get_clan_war(CLAN_TAG)
+    
+    # Check if the clan is not in war.
+    if not latest_war or latest_war.state is coc.WarState.not_in_war:
+        # Check if it is CWL.
+        logger.info('The clan is not at war - Checking if it is CWL')
+        await startup_cwl_war()
+        return
+    # Check if a clan war has ended recently.
+    elif latest_war.state is coc.WarState.war_ended:
+        # Schedule leader tagging to start the next war.
+        logger.info('A clan war has ended recently')
+        schedule_war_leader_tagging(datetime.now(pytz.UTC))
+        return
+    
+    # This must be a normal clan war.
+    logger.info('An active clan war has been detected')
+    
+    logger.debug(f'Current war state: {latest_war.state.in_game_name}')
 
     # As long as it's not preparation day, schedule leader tagging.
     if latest_war.state is not coc.WarState.preparation:
