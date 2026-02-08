@@ -6,6 +6,7 @@ from threading import Lock
 
 import pytz
 from apscheduler.events import EVENT_JOB_ERROR, SchedulerEvent
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from loguru import logger
 
@@ -62,7 +63,12 @@ class LeviathanScheduler:
         self.scheduler.add_job(id=scheduler_id, func=function, args=function_args, kwargs=function_kwargs, trigger='date', run_date=run_time)
     
     def remove_leader_war_tagging(self):
-        self.scheduler.remove_job('start_war_leader_tagging')
+        try:
+            self.scheduler.remove_job('start_war_leader_tagging')
+        except JobLookupError:
+            logger.info('War leader tagging was not removed because it was not scheduled')
+        else:
+            logger.info('War leader tagging was removed from the scheduler')
     
     def clear_scheduler(self):
         # Remove all jobs from the scheduler.
@@ -70,10 +76,10 @@ class LeviathanScheduler:
         self.scheduler.remove_all_jobs()
         logger.info('Scheduler has been cleared')
     
-    def cooldown(self, cooldown_duration: timedelta):
+    def async_cooldown(self, cooldown_duration: timedelta):
         def decorator(func):
             @functools.wraps(func)
-            def wrapper(*args, **kwargs):
+            async def wrapper(*args, **kwargs):
                 # Acquire the lock before accessing shared state
                 with self.cooldown_lock:
                     # Get the next available time for this specific function
@@ -84,7 +90,7 @@ class LeviathanScheduler:
                     if cooldown_end <= now:
                         # If not on cooldown, update the next available time
                         self.cooldowns[func] = Cooldown(cooldown_duration)
-                        return func(*args, **kwargs)
+                        return await func(*args, **kwargs)
                     else:
                         # If on cooldown, check if we have the function scheduled
                         if not self.scheduler.get_job(job_id=f'{func.__name__}_cooldown'):
