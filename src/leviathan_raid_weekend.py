@@ -229,7 +229,7 @@ async def send_raid_weekend_first_day_alert() -> None:
     logger.info('Sent the Raid Weekend first day alert to Discord')
     
     # Get the latest Raid Weekend log entry so we can tag the leaders if Raid Weekend still has not started.
-    raid_weekend_log = await COC_EVENTS_CLIENT.get_raid_log(CLAN_TAG, limit=1)
+    raid_weekend_log = await COC_EVENTS_CLIENT.get_raid_log(CLAN_TAG)
     
     # Check if the clan has never had a Raid Weekend.
     if not raid_weekend_log or len(raid_weekend_log) == 0:
@@ -258,7 +258,7 @@ async def send_raid_weekend_last_day_alert() -> None:
     logger.info('Sent the Raid Weekend last day alert to Discord')
     
     # Get the latest Raid Weekend log entry.
-    raid_weekend_log = await COC_EVENTS_CLIENT.get_raid_log(CLAN_TAG, limit=1)
+    raid_weekend_log = await COC_EVENTS_CLIENT.get_raid_log(CLAN_TAG)
     
     # Check if the clan has never had a Raid Weekend.
     if not raid_weekend_log or len(raid_weekend_log) == 0:
