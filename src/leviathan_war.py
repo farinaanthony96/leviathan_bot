@@ -26,6 +26,19 @@ WAR_START_THRESHOLD = timedelta(hours=3)
 
 
 # ================================== Functions =================================
+async def get_cwl_war_number(war: coc.ClanWar) -> int:
+    # Check if a normal clan war was provided.
+    if not war.is_cwl:
+        return -1
+    
+    war_number = 1
+    async for cwl_war in war.league_group.get_wars_for_clan(CLAN_TAG):
+        # Check if this is the current war.
+        if war.war_tag == cwl_war.war_tag:
+            return war_number
+        war_number += 1
+
+
 async def send_war_reminder(reminder_td: timedelta) -> None:
     logger.info('Sending war reminders to Discord')
     
@@ -122,13 +135,19 @@ async def new_war_found(war: coc.ClanWar) -> None:
     
     # Check if this war is a CWL war.
     if war.is_cwl:
-        # Send a message to Discord stating we found a CWL group.
-        new_cwl_group_found_message = 'A CWL group has been found! Make sure to donate to the war 1 defensive clan castles. Good luck!'
-        logger.info(new_cwl_group_found_message)
-        await DISCORD_CLIENT.send_message(new_cwl_group_found_message, Webhook.CLAN_WAR_REMINDERS)
+        # Check if it is preparation day during CWL.
+        if war.league_group.state == 'preparation':
+            # Send a message to Discord stating we found a CWL group.
+            new_cwl_group_found_message = 'A CWL group has been found! Make sure to donate to the war 1 defensive clan castles. Good luck!'
+            logger.info(new_cwl_group_found_message)
+            await DISCORD_CLIENT.send_message(new_cwl_group_found_message, Webhook.CLAN_WAR_REMINDERS)
         
-        # Run the CWL performance analyzer to prime the CWL Google sheet.
-        await leviathan_cwl_analyzer.run()
+            # Run the CWL performance analyzer to prime the CWL Google sheet.
+            await leviathan_cwl_analyzer.run()
+        else:
+            current_cwl_war_number = await get_cwl_war_number(war)
+            next_cwl_round_started_message = f'War {current_cwl_war_number} prep day has begun'
+            logger.debug(next_cwl_round_started_message)
     # This must be a normal clan war.
     else:
         # Send a Discord message that a new normal clan war has started.
@@ -138,6 +157,8 @@ async def new_war_found(war: coc.ClanWar) -> None:
 
 
 async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
+    logger.debug(f'War state went from "{old_war.state.value}" to "{new_war.state.value}"')
+    
     # Check if it is battle day.
     if new_war.state is coc.WarState.in_war:
         # Send a message to Discord saying battle day has started.
@@ -149,8 +170,15 @@ async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
         schedule_war_reminders(new_war.end_time.time)
     # Check if war ended.
     elif new_war.state is coc.WarState.war_ended:
-        # Send a message to Discord saying the war has ended and the results.
-        war_results_message = 'The war has ended - '
+        # Check if this is a CWL war or a normal clan war.
+        war_results_message = ''
+        if new_war.is_cwl:
+            current_cwl_war_number = await get_cwl_war_number(new_war)
+            war_results_message += f'War {current_cwl_war_number} in CWL has just ended - '
+        else:
+            war_results_message += 'The war has ended - '
+        
+        # Add the status to the results message.
         match new_war.status:
             case 'won':
                 war_results_message += 'WE WON!'
@@ -161,6 +189,7 @@ async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
             case _:
                 war_results_message += 'The result was unable to be determined'
                 
+        # Send a message to Discord saying the war has ended and the results.
         logger.info(war_results_message)
         await DISCORD_CLIENT.send_message(war_results_message, Webhook.CLAN_WAR_REMINDERS)
         
@@ -172,14 +201,16 @@ async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
         
         # If there are players who did not attack in war, log it.
         if len(members_who_missed_attacks_mentions) > 0:
-            logger.info('Players who missed both attacks:')
+            logger.info('Players who did not attack:')
             logger.info(', '.join(members_who_missed_attacks_mentions))
-            
-        # Schedule leader tagging to start the next war.
-        schedule_war_leader_tagging(new_war.end_time.time)
+        
+        # Schedule leader tagging to start the next war, so long as we are not in the middle of CWL.
+        current_cwl_war_number = await get_cwl_war_number(new_war)
+        if not new_war.is_cwl or current_cwl_war_number == new_war.league_group.number_of_rounds:
+            schedule_war_leader_tagging(new_war.end_time.time)
     # We're not doing anything for any other state of war.
     else:
-        logger.debug(f'War state went from "{old_war.state.value}" to "{new_war.state.value}"')
+        pass
         
         # TODO: Check if we go from "war_ended" to "not_in_war" to check if the clan is now looking
         # for another war. If that's correct / logical behavior then we can remove leader tagging
