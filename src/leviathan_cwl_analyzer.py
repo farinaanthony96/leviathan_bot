@@ -541,7 +541,7 @@ async def cwl_analysis_to_google_sheets(cwl_analysis: CWLAnalysis, analysis_head
         cwl_worksheet.batch_format(war_performance_formatting)
 
 
-@SCHEDULER.cooldown(timedelta(minutes=5))
+@SCHEDULER.async_cooldown(timedelta(minutes=5))
 async def run():
     """
     This function will analyze the performance of a clan based off the provided clan tag
