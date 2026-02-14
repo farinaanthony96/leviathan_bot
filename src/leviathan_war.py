@@ -173,6 +173,10 @@ async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
         # Check if this is a CWL war or a normal clan war.
         war_results_message = ''
         if new_war.is_cwl:
+            # Update the CWL sheet for the last time.
+            if new_war.league_group.state == 'ended':
+                await leviathan_cwl_analyzer.run()
+                
             current_cwl_war_number = await get_cwl_war_number(new_war)
             war_results_message += f'War {current_cwl_war_number} in CWL has just ended - '
         else:
