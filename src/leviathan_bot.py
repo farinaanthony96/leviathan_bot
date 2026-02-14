@@ -161,7 +161,7 @@ async def maintenance_ended(maintenance_start_time: datetime) -> None:
 @coc.ClientEvents.event_error()
 async def coc_py_error_occurred(coc_py_exception: Exception) -> None:
     logger.error('The coc.py library encountered an error:')
-    logger.error(coc_py_exception)
+    logger.exception(coc_py_exception)
     await asyncio.sleep(0.1)
 
 
