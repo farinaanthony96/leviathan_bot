@@ -120,7 +120,7 @@ def schedule_war_leader_tagging(war_end: datetime) -> None:
     # Check if the war ends between the desired start time and the threshold.
     elif desired_start_time_today <= war_end <= desired_start_time_today + WAR_START_THRESHOLD:
         SCHEDULER.schedule_generic_job(war_end, 'start_war_leader_tagging', send_war_leader_tagging)
-        logger.info(f'Scheduled leader tagging for the end of war at {war_end.strftime(TIME_FORMAT)}')
+        logger.info(f'Scheduled leader tagging for the end of war at {war_end.astimezone(CLAN_TIMEZONE).strftime(TIME_FORMAT)}')
     # The end time is past the tagging threshold, so let's tag tomorrow.
     else:
         SCHEDULER.schedule_generic_job(desired_start_time_tomorrow, 'start_war_leader_tagging', send_war_leader_tagging)
