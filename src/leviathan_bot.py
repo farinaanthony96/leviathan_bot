@@ -30,6 +30,7 @@ DEBUG_MODE = False
 @coc.WarEvents.preparation_start_time()
 async def new_war_new_func(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
     logger.debug(f'Old Clan prep: {old_war.preparation_start_time.time}  |  New war prep: {new_war.preparation_start_time.time}')
+    logger.debug(f'old prep opponent: {old_war.opponent.name}  |  new prep opponent: {new_war.opponent.name}')
     await asyncio.sleep(0.1)
 
 
@@ -37,13 +38,14 @@ async def new_war_new_func(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
 @coc.WarEvents.war_tag()
 async def cwl_round_change(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
     logger.debug(f'Old war tag: {old_war.war_tag}  |  New war tag: {new_war.war_tag}')
+    logger.debug(f'old opponent: {old_war.opponent.name}  |  new opponent: {new_war.opponent.name}')
     await asyncio.sleep(0.1)
 
 
 @COC_EVENTS_CLIENT.event
 @coc.WarEvents.new_war()
 async def new_war_found(new_war: coc.ClanWar) -> None:
-    logger.debug('old new_war triggered')
+    logger.debug(f'old new_war triggered. New war clan opponent: {new_war.opponent.name}')
     await leviathan_war.new_war_found(new_war)
 
 
@@ -122,7 +124,7 @@ async def member_upgraded_townhall(old_player: coc.Player, new_player: coc.Playe
     # Tag the player in Discord if possible.
     player_discord_mention = COC_PLAYER_TAG_TO_DISCORD_MENTION.get(new_player.tag)
     if player_discord_mention:
-        await DISCORD_CLIENT.send_message(f'Congratulations to "{player_discord_mention}" for upgrading to Townhall {new_player.town_hall}!', Webhook.CLAN_CHAT)
+        await DISCORD_CLIENT.send_message(f'Congratulations to {player_discord_mention} for upgrading to Townhall {new_player.town_hall}!', Webhook.CLAN_CHAT)
     else:
         await DISCORD_CLIENT.send_message(f'Congratulations to "{new_player.name}" for upgrading to Townhall {new_player.town_hall}!', Webhook.CLAN_CHAT)
     
@@ -152,6 +154,11 @@ async def maintenance_ended(maintenance_start_time: datetime) -> None:
     maintenance_length = int((datetime.now(pytz.UTC) - maintenance_start_time.replace(tzinfo=pytz.UTC)).total_seconds())
     await DISCORD_CLIENT.send_message(f'Clash of Clans maintenance has ended - total length: {prettify_seconds(maintenance_length, True)}', Webhook.CLAN_CHAT)
     
+    # Give the Clash of Clans servers time to boot up post-maintenance.
+    MAINTENANCE_END_BOOT_DELAY_SECONDS = 600
+    logger.info(f'Sleeping for {prettify_seconds(MAINTENANCE_END_BOOT_DELAY_SECONDS, True)}...')
+    await asyncio.sleep(MAINTENANCE_END_BOOT_DELAY_SECONDS)
+    
     # Start the coc.py library again to re-populate the scheduler again.
     logger.info('Repopulating the scheduler')
     await get_clan_status()
@@ -163,6 +170,7 @@ async def coc_py_error_occurred(coc_py_exception: Exception) -> None:
     logger.error('The coc.py library encountered an error:')
     logger.exception(coc_py_exception)
     await asyncio.sleep(0.1)
+    raise coc_py_exception
 
 
 # ================================== Functions =================================
@@ -185,7 +193,7 @@ async def get_clan_status() -> None:
 
 async def startup() -> None:
     # Configure the logger.
-    logger.add("./logs/{time:YYYY-MM-DD}_leviathan_bot.log", rotation="00:00", enqueue=True)
+    logger.add("./logs/{time:YYYY-MM-DD}_leviathan_bot.log", rotation="00:00", enqueue=True, backtrace=True)
     
     logger.info('========================== Initializing Leviathan Bot ==========================')
     
