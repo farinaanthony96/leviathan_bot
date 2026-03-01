@@ -130,6 +130,10 @@ async def clan_games_ended() -> None:
 
 
 async def startup_clan_games() -> None:
+    # Set up triggers.
+    SCHEDULER.scheduler.add_job(func=send_clan_games_first_day_alert, trigger=ALERT_CRON_CLAN_GAMES_FIRST_DAY, id=SCHEDULER_ID_CLAN_GAMES_FIRST_DAY)
+    SCHEDULER.scheduler.add_job(func=send_clan_games_first_day_alert, trigger=ALERT_CRON_CLAN_GAMES_FIRST_DAY, id=SCHEDULER_ID_CLAN_GAMES_FIRST_DAY)
+    
     # Get relevant event times.
     next_clan_games_start = coc.utils.get_clan_games_start().replace(tzinfo=pytz.UTC)
     next_clan_games_end = coc.utils.get_clan_games_end().replace(tzinfo=pytz.UTC)
@@ -161,7 +165,6 @@ async def startup_clan_games() -> None:
 
 
 # ================================== Triggers ==================================
-@SCHEDULER.scheduler.scheduled_job(ALERT_CRON_CLAN_GAMES_FIRST_DAY, id=SCHEDULER_ID_CLAN_GAMES_FIRST_DAY)
 async def send_clan_games_first_day_alert() -> None:
     # Prepare and send the message.
     clan_games_started_message = 'Clan Games has begun! Be sure to get some challenges done. Good luck and have fun!'
@@ -169,7 +172,6 @@ async def send_clan_games_first_day_alert() -> None:
     logger.info('Sent the Clan Games first day alert to Discord')
 
 
-@SCHEDULER.scheduler.scheduled_job(ALERT_CRON_CLAN_GAMES_LAST_DAY, id=SCHEDULER_ID_CLAN_GAMES_LAST_DAY)
 async def send_clan_games_last_day_alert() -> None:
     # Prepare and send the message.
     clan_games_last_day_message = 'Today is the last day of Clan Games! Be sure to get some challenges done if you haven''t done so already.'

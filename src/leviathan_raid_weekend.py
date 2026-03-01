@@ -103,8 +103,8 @@ async def send_raid_weekend_reminder(reminder_td: timedelta) -> None:
     
     await DISCORD_CLIENT.send_message(raid_weekend_warning_message, Webhook.RAID_WEEKEND_REMINDERS)
     logger.info('Raid Weekend reminders sent to Discord')
-    
-    
+
+
 def schedule_raid_weekend_reminders() -> None:
     # Schedule Raid Weekend reminders in Discord.
     logger.info('Scheduling Raid Weekend reminders')
@@ -145,6 +145,10 @@ async def raid_weekend_ended() -> None:
 
 
 async def startup_raid_weekend() -> None:
+    # Set up triggers.
+    SCHEDULER.scheduler.add_job(func=send_raid_weekend_first_day_alert, trigger=ALERT_CRON_RAID_WEEKEND_FIRST_DAY, id=SCHEDULER_ID_RAID_WEEKEND_FIRST_DAY)
+    SCHEDULER.scheduler.add_job(func=send_raid_weekend_last_day_alert, trigger=ALERT_CRON_RAID_WEEKEND_FIRST_DAY, id=SCHEDULER_ID_RAID_WEEKEND_FIRST_DAY)
+    
     # Get relevant event times.
     next_raid_weekend_start = coc.utils.get_raid_weekend_start().replace(tzinfo=pytz.UTC)
     next_raid_weekend_start_alert = next_raid_weekend_start.astimezone(CLAN_TIMEZONE).replace(hour=9, minute=0, second=0)
@@ -221,7 +225,6 @@ async def startup_raid_weekend() -> None:
 
 
 # ================================= Triggers ==================================
-@SCHEDULER.scheduler.scheduled_job(ALERT_CRON_RAID_WEEKEND_FIRST_DAY, id=SCHEDULER_ID_RAID_WEEKEND_FIRST_DAY)
 async def send_raid_weekend_first_day_alert() -> None:
     # Prepare and send the message.
     raid_weekend_started_message = 'Raid Weekend has begun! Be sure to get your 6 raids in. Good luck and have fun!'
@@ -250,7 +253,6 @@ async def send_raid_weekend_first_day_alert() -> None:
         return
 
 
-@SCHEDULER.scheduler.scheduled_job(ALERT_CRON_RAID_WEEKEND_LAST_DAY, id=SCHEDULER_ID_RAID_WEEKEND_LAST_DAY)
 async def send_raid_weekend_last_day_alert() -> None:
     # Prepare and send the message.
     raid_weekend_last_day_message = 'Today is the last day of Raid Weekend! Be sure to complete all 6 of your raids if you haven''t done so already.'
