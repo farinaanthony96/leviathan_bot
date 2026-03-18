@@ -29,8 +29,14 @@ DEBUG_MODE = False
 @COC_EVENTS_CLIENT.event
 @coc.WarEvents.preparation_start_time()
 async def new_war_new_func(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
-    logger.debug(f'Old Clan prep: {old_war.preparation_start_time.time}  |  New war prep: {new_war.preparation_start_time.time}')
-    logger.debug(f'old prep opponent: {old_war.opponent.name}  |  new prep opponent: {new_war.opponent.name}')
+    if not old_war and new_war:
+        logger.debug(f'Old war is "None" - We have found a new war against "{new_war.opponent.name}"')
+        await leviathan_war.new_war_found(new_war)
+    elif old_war and not new_war:
+        logger.debug(f'New war is "None" - We just ended the war with "{old_war.opponent.name}". We may have started a new war search')
+    elif old_war and new_war:
+        logger.debug(f'There may have been a CWL round change. Old opponent: "{old_war.opponent.name}"  |  New opponent: "{new_war.opponent.name}"')
+    
     await asyncio.sleep(0.1)
 
 
