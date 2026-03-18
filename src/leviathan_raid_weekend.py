@@ -146,6 +146,7 @@ async def raid_weekend_ended() -> None:
 
 async def startup_raid_weekend() -> None:
     # Set up triggers.
+    logger.info('Setting up Raid Weekend triggers')
     SCHEDULER.scheduler.add_job(func=send_raid_weekend_first_day_alert, trigger=ALERT_CRON_RAID_WEEKEND_FIRST_DAY, id=SCHEDULER_ID_RAID_WEEKEND_FIRST_DAY)
     SCHEDULER.scheduler.add_job(func=send_raid_weekend_last_day_alert, trigger=ALERT_CRON_RAID_WEEKEND_LAST_DAY, id=SCHEDULER_ID_RAID_WEEKEND_LAST_DAY)
     

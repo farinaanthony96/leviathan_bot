@@ -131,6 +131,7 @@ async def clan_games_ended() -> None:
 
 async def startup_clan_games() -> None:
     # Set up triggers.
+    logger.info('Setting up Clan Games triggers')
     SCHEDULER.scheduler.add_job(func=send_clan_games_first_day_alert, trigger=ALERT_CRON_CLAN_GAMES_FIRST_DAY, id=SCHEDULER_ID_CLAN_GAMES_FIRST_DAY)
     SCHEDULER.scheduler.add_job(func=send_clan_games_last_day_alert, trigger=ALERT_CRON_CLAN_GAMES_LAST_DAY, id=SCHEDULER_ID_CLAN_GAMES_LAST_DAY)
     
