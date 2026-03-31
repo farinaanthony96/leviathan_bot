@@ -65,6 +65,26 @@ async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
 @coc.WarEvents.war_attack()
 async def war_attack_occurred(attack: coc.WarAttack, war: coc.ClanWar) -> None:
     await leviathan_war.war_attack_occurred(attack, war)
+    
+
+@COC_EVENTS_CLIENT.event
+@coc.WarEvents.league_group()
+async def cwl_group_found(old_cwl_group: coc.ClanWarLeagueGroup, new_cwl_group: coc.ClanWarLeagueGroup) -> None:
+    if old_cwl_group is None:
+        old_state = 'None'
+        old_season = 'None'
+    else:
+        old_state = old_cwl_group.state
+        old_season = old_cwl_group.season
+        
+    if new_cwl_group is None:
+        new_state = 'None'
+        new_season = 'None'
+    else:
+        new_state = new_cwl_group.state
+        new_season = new_cwl_group.season
+    
+    logger.debug(f'CWL Group object changed - Old state/season: {old_state}/{old_season}   |   New state/season: {new_state}/{new_season}')
 
 
 @COC_EVENTS_CLIENT.event
