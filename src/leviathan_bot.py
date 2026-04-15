@@ -27,37 +27,16 @@ DEBUG_MODE = False
 
 # =============================== Event Listeners ==============================
 @COC_EVENTS_CLIENT.event
-@coc.WarEvents.preparation_start_time()
-async def new_war_new_func(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
-    if not old_war and new_war:
-        logger.debug(f'Old war is "None" - We have found a new war against "{new_war.opponent.name}"')
-        await leviathan_war.new_war_found(new_war)
-    elif old_war and not new_war:
-        logger.debug(f'New war is "None" - We just ended the war with "{old_war.opponent.name}". We may have started a new war search')
-    elif old_war and new_war:
-        logger.debug(f'There may have been a CWL round change. Old opponent: "{old_war.opponent.name}"  |  New opponent: "{new_war.opponent.name}"')
-    
-    await asyncio.sleep(0.1)
-
-
-@COC_EVENTS_CLIENT.event
-@coc.WarEvents.war_tag()
-async def cwl_round_change(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
-    logger.debug(f'Old war tag: {old_war.war_tag}  |  New war tag: {new_war.war_tag}')
-    logger.debug(f'old opponent: {old_war.opponent.name}  |  new opponent: {new_war.opponent.name}')
-    await asyncio.sleep(0.1)
-
-
-@COC_EVENTS_CLIENT.event
 @coc.WarEvents.new_war()
 async def new_war_found(new_war: coc.ClanWar) -> None:
-    logger.debug(f'old new_war triggered. New war clan opponent: {new_war.opponent.name}')
+    logger.debug(f'New war detected against "{new_war.opponent.name}"')
     await leviathan_war.new_war_found(new_war)
 
 
 @COC_EVENTS_CLIENT.event
 @coc.WarEvents.state()
 async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
+    logger.debug(f'War state went from "{old_war.state.value}" to "{new_war.state.value}"')
     await leviathan_war.war_state_changed(old_war, new_war)
 
 
@@ -65,26 +44,6 @@ async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
 @coc.WarEvents.war_attack()
 async def war_attack_occurred(attack: coc.WarAttack, war: coc.ClanWar) -> None:
     await leviathan_war.war_attack_occurred(attack, war)
-    
-
-@COC_EVENTS_CLIENT.event
-@coc.WarEvents.league_group()
-async def cwl_group_found(old_cwl_group: coc.ClanWarLeagueGroup, new_cwl_group: coc.ClanWarLeagueGroup) -> None:
-    if old_cwl_group is None:
-        old_state = 'None'
-        old_season = 'None'
-    else:
-        old_state = old_cwl_group.state
-        old_season = old_cwl_group.season
-        
-    if new_cwl_group is None:
-        new_state = 'None'
-        new_season = 'None'
-    else:
-        new_state = new_cwl_group.state
-        new_season = new_cwl_group.season
-    
-    logger.debug(f'CWL Group object changed - Old state/season: {old_state}/{old_season}   |   New state/season: {new_state}/{new_season}')
 
 
 @COC_EVENTS_CLIENT.event
