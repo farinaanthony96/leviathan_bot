@@ -104,6 +104,13 @@ async def send_war_leader_tagging() -> None:
 
 
 def schedule_war_leader_tagging(war_end: datetime) -> None:
+    # Check if we need to send the war tagging immediately.
+    now = datetime.now(tz=pytz.UTC)
+    war_ended = True if now >= war_end else False
+    if war_ended and desired_start_time_today <= now <= desired_start_time_today + WAR_START_THRESHOLD:
+        send_war_leader_tagging()
+        return
+    
     # Initialize relevant datetimes.
     war_end = war_end.replace(tzinfo=pytz.UTC)
     desired_start_time_today = datetime.now(CLAN_TIMEZONE).replace(
@@ -113,7 +120,7 @@ def schedule_war_leader_tagging(war_end: datetime) -> None:
     )
     desired_start_time_tomorrow = desired_start_time_today + timedelta(days=1)
     
-    # Check if the war ends between the desired start time and the threshold.
+    # Check if the war ends before the desired start time.
     if war_end < desired_start_time_today:
         SCHEDULER.schedule_generic_job(desired_start_time_today, 'start_war_leader_tagging', send_war_leader_tagging)
         logger.info(f'Scheduled leader tagging for the desired war start time at {DESIRED_WAR_START_TIME.strftime(TIME_FORMAT)}')
@@ -137,7 +144,7 @@ async def new_war_found(war: coc.ClanWar) -> None:
     if war.is_cwl:
         # Check if it is preparation day during CWL.
         logger.debug(f'CWL group state: {war.league_group.state}')
-        if war.league_group.state == 'Preparation':
+        if war.league_group.state == 'preparation':
             # Send a message to Discord stating we found a CWL group.
             new_cwl_group_found_message = 'A CWL group has been found! Make sure to donate to the war 1 defensive clan castles. Good luck!'
             logger.info(new_cwl_group_found_message)
@@ -147,7 +154,7 @@ async def new_war_found(war: coc.ClanWar) -> None:
             await leviathan_cwl_analyzer.run()
         else:
             current_cwl_war_number = await get_cwl_war_number(war)
-            next_cwl_round_started_message = f'War {current_cwl_war_number} prep day has begun'
+            next_cwl_round_started_message = f'CWL War {current_cwl_war_number} battle day has begun!'
             logger.debug(next_cwl_round_started_message)
     # This must be a normal clan war.
     else:
@@ -158,8 +165,6 @@ async def new_war_found(war: coc.ClanWar) -> None:
 
 
 async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
-    logger.debug(f'War state went from "{old_war.state.value}" to "{new_war.state.value}"')
-    
     # Check if it is battle day.
     if new_war.state is coc.WarState.in_war:
         # Send a message to Discord saying battle day has started.
