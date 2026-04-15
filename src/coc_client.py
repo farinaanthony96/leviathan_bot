@@ -8,4 +8,4 @@ import dotenv
 dotenv.load_dotenv(override=True)
 
 # Clash of Clans library client
-COC_EVENTS_CLIENT = coc.EventsClient(key_names=os.getenv('COC_API_KEY_NAME'))
+COC_EVENTS_CLIENT = coc.EventsClient(key_names=os.getenv('COC_API_KEY_NAME'), check_cwl_prep=True)
