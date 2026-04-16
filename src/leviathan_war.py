@@ -103,14 +103,7 @@ async def send_war_leader_tagging() -> None:
     await DISCORD_CLIENT.send_message(f'{MENTION_LEADER} {MENTION_CO_LEADER} Start the next war!', Webhook.CLAN_WAR_REMINDERS)
 
 
-def schedule_war_leader_tagging(war_end: datetime) -> None:
-    # Check if we need to send the war tagging immediately.
-    now = datetime.now(tz=pytz.UTC)
-    war_ended = True if now >= war_end else False
-    if war_ended and desired_start_time_today <= now <= desired_start_time_today + WAR_START_THRESHOLD:
-        send_war_leader_tagging()
-        return
-    
+async def schedule_war_leader_tagging(war_end: datetime) -> None:
     # Initialize relevant datetimes.
     war_end = war_end.replace(tzinfo=pytz.UTC)
     desired_start_time_today = datetime.now(CLAN_TIMEZONE).replace(
@@ -119,6 +112,13 @@ def schedule_war_leader_tagging(war_end: datetime) -> None:
         second=DESIRED_WAR_START_TIME.second
     )
     desired_start_time_tomorrow = desired_start_time_today + timedelta(days=1)
+    now = datetime.now(tz=pytz.UTC)
+    war_ended = True if now >= war_end else False
+    
+    # Check if we need to send the war tagging immediately.
+    if war_ended and desired_start_time_today <= now <= desired_start_time_today + WAR_START_THRESHOLD:
+        await send_war_leader_tagging()
+        return
     
     # Check if the war ends before the desired start time.
     if war_end < desired_start_time_today:
@@ -217,7 +217,7 @@ async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
         # Schedule leader tagging to start the next war, so long as we are not in the middle of CWL.
         current_cwl_war_number = await get_cwl_war_number(new_war)
         if not new_war.is_cwl or current_cwl_war_number == new_war.league_group.number_of_rounds:
-            schedule_war_leader_tagging(new_war.end_time.time)
+            await schedule_war_leader_tagging(new_war.end_time.time)
     # We're not doing anything for any other state of war.
     else:
         pass
@@ -256,7 +256,7 @@ async def startup_cwl_war() -> None:
         return
     elif cwl_group.state == 'ended':
         logger.info('CWL has ended - Setting up leader tagging to search for a normal clan war')
-        schedule_war_leader_tagging(datetime.now(pytz.UTC))
+        await schedule_war_leader_tagging(datetime.now(pytz.UTC))
         return
     
     # Get the current war in CWL.
@@ -285,7 +285,7 @@ async def startup_war() -> None:
     elif latest_war.state is coc.WarState.war_ended:
         # Schedule leader tagging to start the next war.
         logger.info('A clan war has ended recently')
-        schedule_war_leader_tagging(datetime.now(pytz.UTC))
+        await schedule_war_leader_tagging(datetime.now(pytz.UTC))
         return
     
     # This must be a normal clan war.
