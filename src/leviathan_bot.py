@@ -227,8 +227,8 @@ async def startup() -> None:
     await get_clan_status()
     
     # Start the Reddit recruitment task.
-    loop = asyncio.get_event_loop()
-    loop.create_task(coro=leviathan_reddit.stream_recruitment_subreddit(), name='stream_reddit_recruitment')
+    # loop = asyncio.get_event_loop()
+    # loop.create_task(coro=leviathan_reddit.stream_recruitment_subreddit(), name='stream_reddit_recruitment')
     
     logger.info('============================ Initialization Complete ===========================')
 
