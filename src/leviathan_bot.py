@@ -19,7 +19,7 @@ from leviathan_utils import CLAN_TAG, prettify_seconds
 
 
 # ======================= Environment / Global Variables =======================
-dotenv.load_dotenv(override=True)
+# dotenv.load_dotenv(override=True)
 
 # Asyncio debug mode
 DEBUG_MODE = False
@@ -193,7 +193,7 @@ async def get_clan_status() -> None:
 
 async def startup() -> None:
     # Configure the logger.
-    logger.add("./logs/{time:YYYY-MM-DD}_leviathan_bot.log", rotation="00:00", enqueue=True, backtrace=True)
+    # logger.add("./logs/{time:YYYY-MM-DD}_leviathan_bot.log", rotation="00:00", enqueue=True, backtrace=True)
     
     logger.info('========================== Initializing Leviathan Bot ==========================')
     
@@ -242,8 +242,8 @@ async def startup() -> None:
     await get_clan_status()
     
     # Start the Reddit recruitment task.
-    loop = asyncio.get_event_loop()
-    loop.create_task(coro=leviathan_reddit.stream_recruitment_subreddit(), name='stream_reddit_recruitment')
+    # loop = asyncio.get_event_loop()
+    # loop.create_task(coro=leviathan_reddit.stream_recruitment_subreddit(), name='stream_reddit_recruitment')
     
     logger.info('============================ Initialization Complete ===========================')
 
