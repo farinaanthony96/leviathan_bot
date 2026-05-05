@@ -154,7 +154,7 @@ async def new_war_found(war: coc.ClanWar) -> None:
             await leviathan_cwl_analyzer.run()
         else:
             current_cwl_war_number = await get_cwl_war_number(war)
-            next_cwl_round_started_message = f'CWL War {current_cwl_war_number} battle day has begun!'
+            next_cwl_round_started_message = f'CWL War {current_cwl_war_number} is now in preparation! Be sure to donate to the defensive clan castles. Good luck!'
             logger.debug(next_cwl_round_started_message)
     # This must be a normal clan war.
     else:
