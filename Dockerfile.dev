@@ -1,0 +1,31 @@
+FROM python:3.13.13-alpine3.23 AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN addgroup -S -g 10015 docker && \
+    adduser -S -u 10014 -G docker appuser
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN python -m pip install --upgrade pip && \
+    python -m pip install pyinstaller && \
+    python -m pip install --no-cache-dir -r requirements.txt
+
+COPY ./src .
+
+RUN python -m pyinstaller --onefile ./src/leviathan_bot.py
+
+
+FROM scratch
+
+LABEL org.opencontainers.image.authors="Anthony Farina"
+
+COPY --from=builder /app/dist/leviathan_bot /leviathan_bot
+
+USER 10014
+
+ENTRYPOINT ["/leviathan_bot"]
