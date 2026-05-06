@@ -143,7 +143,6 @@ async def new_war_found(war: coc.ClanWar) -> None:
     # Check if this war is a CWL war.
     if war.is_cwl:
         # Check if it is preparation day during CWL.
-        logger.debug(f'CWL group state: {war.league_group.state}')
         if war.league_group.state == 'preparation':
             # Send a message to Discord stating we found a CWL group.
             new_cwl_group_found_message = 'A CWL group has been found! Make sure to donate to the war 1 defensive clan castles. Good luck!'
