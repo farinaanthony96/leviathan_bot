@@ -36,7 +36,7 @@ async def new_war_found(new_war: coc.ClanWar) -> None:
 @COC_EVENTS_CLIENT.event
 @coc.WarEvents.state()
 async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
-    logger.debug(f'War state went from "{old_war.state.value}" to "{new_war.state.value}"')
+    logger.debug(f'War state went from "{old_war.opponent.name if old_war.opponent else "No clan"}:{old_war.state.value}" to "{new_war.opponent.name if new_war.opponent else "No clan"}:{new_war.state.value}"')
     await leviathan_war.war_state_changed(old_war, new_war)
 
 
