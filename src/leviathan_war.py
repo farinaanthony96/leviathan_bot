@@ -136,12 +136,16 @@ async def schedule_war_leader_tagging(war_end: datetime) -> None:
 
 async def new_war_found(war: coc.ClanWar) -> None:
     # TODO: We may need to look in the "war_state_changed" for a change from normal clan war to CWL.
+    # INTEL: When a new CWL round starts (the war goes from prep to inWar), this method runs!
     
     # Remove leader tagging to start the next war from the scheduler since we just found a new war.
     SCHEDULER.remove_leader_war_tagging()
     
     # Check if this war is a CWL war.
     if war.is_cwl:
+        # Get the current CWL war number.
+        current_cwl_war_number = await get_cwl_war_number(war)
+        
         # Check if it is preparation day during CWL.
         if war.league_group.state == 'preparation':
             # Send a message to Discord stating we found a CWL group.
@@ -151,10 +155,20 @@ async def new_war_found(war: coc.ClanWar) -> None:
         
             # Run the CWL performance analyzer to prime the CWL Google sheet.
             await leviathan_cwl_analyzer.run()
-        else:
-            current_cwl_war_number = await get_cwl_war_number(war)
+        elif war.state is coc.WarState.in_war:
+            # Send a message to Discord that the next CWL war has begun.
+            next_cwl_war_started_message = f'Battle day for war {current_cwl_war_number} has started against "{war.opponent.name}"!'
+            logger.info(next_cwl_war_started_message)
+            await DISCORD_CLIENT.send_message(next_cwl_war_started_message, Webhook.CLAN_WAR_REMINDERS)
+            
+            # Run the CWL performance analyzer to update the CWL Google sheet and set war reminders.
+            await leviathan_cwl_analyzer.run()
+            schedule_war_reminders(war.end_time.time)
+        elif war.state is coc.WarState.preparation:
             next_cwl_round_started_message = f'CWL War {current_cwl_war_number} is now in preparation! Be sure to donate to the defensive clan castles. Good luck!'
             logger.debug(next_cwl_round_started_message)
+        else:
+            logger.warning(f'new_war_found() got an unexpected war state: {war.state.value}')
     # This must be a normal clan war.
     else:
         # Send a Discord message that a new normal clan war has started.
@@ -164,8 +178,8 @@ async def new_war_found(war: coc.ClanWar) -> None:
 
 
 async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
-    # Check if it is battle day.
-    if new_war.state is coc.WarState.in_war:
+    # Check if it is battle day for normal clan wars - "new_war()" takes care of CWL wars.
+    if new_war.state is coc.WarState.in_war and not new_war.is_cwl:
         # Send a message to Discord saying battle day has started.
         battle_day_started_message = f'Battle day has started against "{new_war.opponent.name}"!'
         logger.info(battle_day_started_message)
@@ -180,6 +194,7 @@ async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
         if new_war.is_cwl:
             # Update the CWL sheet for the last time.
             if new_war.league_group.state == 'ended':
+                logger.info('End of CWL has been detected! Finalizing CWL performance sheet')
                 await leviathan_cwl_analyzer.run()
                 
             current_cwl_war_number = await get_cwl_war_number(new_war)
@@ -219,7 +234,9 @@ async def war_state_changed(old_war: coc.ClanWar, new_war: coc.ClanWar) -> None:
             await schedule_war_leader_tagging(new_war.end_time.time)
     # We're not doing anything for any other state of war.
     else:
-        pass
+        logger.warning(f'war_state_changed() reached an undefined state')
+        logger.warning(f'Is CWL: {new_war.is_cwl}')
+        logger.warning(f'Old war state: {old_war.state.value}, New war state: {new_war.state.value}')
         
         # TODO: Check if we go from "war_ended" to "not_in_war" to check if the clan is now looking
         # for another war. If that's correct / logical behavior then we can remove leader tagging
@@ -242,7 +259,7 @@ async def startup_cwl_war() -> None:
     cwl_group = await COC_EVENTS_CLIENT.get_league_group(CLAN_TAG)
     
     # Check if it's not CWL.
-    if not cwl_group:
+    if not cwl_group or cwl_group.state == 'notInWar':
         logger.info('The clan is not in CWL')
         return
     
