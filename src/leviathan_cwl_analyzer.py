@@ -20,7 +20,6 @@ from leviathan_utils import CLAN_TAG, COC_MAX_TOWNHALL_LEVEL
 dotenv.load_dotenv(override=True)
 
 # Google Sheets variables
-GOOGLE_SHEETS_SHEET_NAME = datetime.today().strftime("%B")
 GOOGLE_SHEETS_SPREADSHEET_ID = os.getenv("GOOGLE_SHEETS_SPREADSHEET_ID")
 
 # CWL data CSV file name and path
@@ -411,7 +410,7 @@ async def cwl_analysis_to_google_sheets(cwl_analysis: CWLAnalysis, analysis_head
     gs = gspread.service_account()
     
     cwl_spreadsheet = gs.open_by_key(GOOGLE_SHEETS_SPREADSHEET_ID)
-    cwl_worksheet = cwl_spreadsheet.worksheet(GOOGLE_SHEETS_SHEET_NAME)
+    cwl_worksheet = cwl_spreadsheet.worksheet(datetime.today().strftime("%B"))  # Open the worksheet for the current month.
     format_batch = batch_updater(cwl_spreadsheet)
     
     title_format = CellFormat(textFormat=TextFormat(bold=True), horizontalAlignment='CENTER', verticalAlignment='MIDDLE')
